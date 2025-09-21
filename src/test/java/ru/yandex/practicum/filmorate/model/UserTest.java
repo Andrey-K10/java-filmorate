@@ -7,7 +7,6 @@ import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.controller.UserController;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
 
 import java.time.LocalDate;
 import java.util.Set;
@@ -232,4 +231,4 @@ class UserTest {
         Set<ConstraintViolation<User>> violations = validator.validate(user);
         assertEquals(3, violations.size());
     }
-}   
+}
