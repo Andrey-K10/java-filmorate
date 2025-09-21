@@ -9,15 +9,15 @@ import jakarta.validation.constraints.*;
 public class Film {
     private int id;
 
-    @NotBlank
+    @NotBlank(message = "Название фильма не может быть пустым")
     private String name;
 
-    @Size(min = 1, max = 200)
+    @Size(max = 200, message = "Описание не может быть длиннее 200 символов")
     private String description;
 
-    @NotNull
+    @NotNull(message = "Дата релиза не может быть пустой")
     private LocalDate releaseDate;
 
-    @Min(1)
+    @Positive(message = "Продолжительность фильма должна быть положительным числом")
     private int duration;
 }
