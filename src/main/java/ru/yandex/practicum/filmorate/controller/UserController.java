@@ -92,5 +92,5 @@ public class UserController {
 
         log.debug("Валидация пользователя пройдена успешно");
     }
-    }
+
 }
