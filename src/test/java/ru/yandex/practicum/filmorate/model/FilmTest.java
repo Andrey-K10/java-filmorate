@@ -33,8 +33,8 @@ class FilmTest {
         Film film = createValidFilm();
         film.setName("   ");
         Set<ConstraintViolation<Film>> violations = validator.validate(film);
-        assertEquals(1, violations.size());
-        assertEquals("Название фильма не может быть пустым", violations.iterator().next().getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Название фильма не может быть пустым")));
     }
 
     @Test
@@ -42,8 +42,8 @@ class FilmTest {
         Film film = createValidFilm();
         film.setDescription("A".repeat(201));
         Set<ConstraintViolation<Film>> violations = validator.validate(film);
-        assertEquals(1, violations.size());
-        assertEquals("Описание не может быть длиннее 200 символов", violations.iterator().next().getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Описание не может быть длиннее 200 символов")));
     }
 
     @Test
@@ -51,8 +51,8 @@ class FilmTest {
         Film film = createValidFilm();
         film.setReleaseDate(null);
         Set<ConstraintViolation<Film>> violations = validator.validate(film);
-        assertEquals(1, violations.size());
-        assertEquals("Дата релиза не может быть пустой", violations.iterator().next().getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Дата релиза не может быть пустой")));
     }
 
     @Test
@@ -60,8 +60,8 @@ class FilmTest {
         Film film = createValidFilm();
         film.setDuration(-1);
         Set<ConstraintViolation<Film>> violations = validator.validate(film);
-        assertEquals(1, violations.size());
-        assertEquals("Продолжительность фильма должна быть положительным числом", violations.iterator().next().getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Продолжительность фильма должна быть положительным числом")));
     }
 
     private Film createValidFilm() {

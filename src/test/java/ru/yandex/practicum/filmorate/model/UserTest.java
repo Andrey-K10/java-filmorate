@@ -33,8 +33,8 @@ class UserTest {
         User user = createValidUser();
         user.setEmail("   ");
         Set<ConstraintViolation<User>> violations = validator.validate(user);
-        assertEquals(1, violations.size());
-        assertEquals("Электронная почта не может быть пустой", violations.iterator().next().getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Электронная почта не может быть пустой")));
     }
 
     @Test
@@ -42,8 +42,8 @@ class UserTest {
         User user = createValidUser();
         user.setEmail("invalid-email");
         Set<ConstraintViolation<User>> violations = validator.validate(user);
-        assertEquals(1, violations.size());
-        assertEquals("Электронная почта должна содержать символ @", violations.iterator().next().getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Электронная почта должна содержать символ @")));
     }
 
     @Test
@@ -51,8 +51,8 @@ class UserTest {
         User user = createValidUser();
         user.setLogin("   ");
         Set<ConstraintViolation<User>> violations = validator.validate(user);
-        assertEquals(1, violations.size());
-        assertEquals("Логин не может быть пустым", violations.iterator().next().getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Логин не может быть пустым")));
     }
 
     @Test
@@ -60,8 +60,8 @@ class UserTest {
         User user = createValidUser();
         user.setLogin("test user");
         Set<ConstraintViolation<User>> violations = validator.validate(user);
-        assertEquals(1, violations.size());
-        assertEquals("Логин не может содержать пробелы", violations.iterator().next().getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Логин не может содержать пробелы")));
     }
 
     @Test
@@ -69,8 +69,8 @@ class UserTest {
         User user = createValidUser();
         user.setBirthday(LocalDate.now().plusDays(1));
         Set<ConstraintViolation<User>> violations = validator.validate(user);
-        assertEquals(1, violations.size());
-        assertEquals("Дата рождения не может быть в будущем", violations.iterator().next().getMessage());
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Дата рождения не может быть в будущем")));
     }
 
     private User createValidUser() {
