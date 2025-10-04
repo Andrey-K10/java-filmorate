@@ -8,6 +8,7 @@ import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 import java.util.*;
 import java.util.stream.Collectors;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 
 @Slf4j
 @Service
@@ -69,7 +70,7 @@ public class UserService {
 
         if (!friendships.containsKey(userId) || !friendships.get(userId).contains(friendId)) {
             log.warn("Пользователь с id {} не в друзьях у пользователя с id {}", friendId, userId);
-            throw new ValidationException("Пользователь не в друзьях");
+            throw new NotFoundException("Пользователь не в друзьях"); //
         }
 
         friendships.get(userId).remove(friendId);

@@ -16,7 +16,7 @@ import java.time.LocalDate;
 public class FilmService {
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
-    private final Map<Integer, Set<Integer>> likes = new HashMap<>(); // filmId -> userIds who liked
+    private final Map<Integer, Set<Integer>> likes = new HashMap<>();
 
     @Autowired
     public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
