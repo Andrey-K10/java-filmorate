@@ -65,14 +65,17 @@ public class UserService {
 
     // Удаление из друзей
     public void removeFriend(int userId, int friendId) {
-        User user = userStorage.getUserById(userId);
-        User friend = userStorage.getUserById(friendId);
+        // Проверяем существование пользователей
+        userStorage.getUserById(userId);
+        userStorage.getUserById(friendId);
 
+        // Если дружбы нет - выходим
         if (!friendships.containsKey(userId) || !friendships.get(userId).contains(friendId)) {
-            log.warn("Пользователь с id {} не в друзьях у пользователя с id {}", friendId, userId);
-            throw new NotFoundException("Пользователь не в друзьях"); //
+            log.info("Пользователь с id {} не в друзьях у пользователя с id {} - операция пропущена", friendId, userId);
+            return;
         }
 
+        // Если дружба есть - удаляем
         friendships.get(userId).remove(friendId);
         friendships.get(friendId).remove(userId);
         log.info("Пользователи с id {} и {} больше не друзья", userId, friendId);
