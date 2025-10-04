@@ -7,53 +7,79 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import jakarta.validation.ConstraintViolationException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Обработка ошибок валидации @Valid
+    // Обработка ошибок валидации @Valid - ВОЗВРАЩАЕМ JSON!
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<String> handleValidationException(MethodArgumentNotValidException ex) {
+    public ResponseEntity<Map<String, String>> handleValidationException(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining("; "));
 
         log.warn("Ошибка валидации: {}", errorMessage);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorMessage);
+
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", "Validation failed");
+        errorResponse.put("message", errorMessage);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-    // Обработка кастомных ValidationException (400)
+    // Обработка кастомных ValidationException - ВОЗВРАЩАЕМ JSON!
     @ExceptionHandler(ValidationException.class)
-    public ResponseEntity<String> handleValidationException(ValidationException ex) {
+    public ResponseEntity<Map<String, String>> handleValidationException(ValidationException ex) {
         log.warn("Ошибка валидации: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", "Validation failed");
+        errorResponse.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-    // Обработка NotFoundException (404) - нужно создать этот exception
+    // Обработка NotFoundException - ВОЗВРАЩАЕМ JSON!
     @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<String> handleNotFoundException(NotFoundException ex) {
+    public ResponseEntity<Map<String, String>> handleNotFoundException(NotFoundException ex) {
         log.warn("Объект не найден: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", "Not found");
+        errorResponse.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
-    // Обработка всех остальных исключений (500)
+    // Обработка всех остальных исключений - ВОЗВРАЩАЕМ JSON!
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> handleGenericException(Exception ex) {
+    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
         log.error("Внутренняя ошибка сервера: {}", ex.getMessage(), ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Внутренняя ошибка сервера");
+
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", "Internal server error");
+        errorResponse.put("message", "Внутренняя ошибка сервера");
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
-    // Обработка ConstraintViolationException для @Validated
+    // Обработка ConstraintViolationException - ВОЗВРАЩАЕМ JSON!
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<String> handleConstraintViolationException(ConstraintViolationException ex) {
+    public ResponseEntity<Map<String, String>> handleConstraintViolationException(ConstraintViolationException ex) {
         String errorMessage = ex.getConstraintViolations().stream()
                 .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
                 .collect(Collectors.joining("; "));
 
         log.warn("Ошибка валидации параметров: {}", errorMessage);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorMessage);
+
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", "Validation failed");
+        errorResponse.put("message", errorMessage);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 }
