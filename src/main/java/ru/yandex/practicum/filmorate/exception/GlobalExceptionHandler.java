@@ -10,6 +10,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -81,5 +82,16 @@ public class GlobalExceptionHandler {
         errorResponse.put("message", errorMessage);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNotFoundException(NoHandlerFoundException ex) {
+        log.debug("Запрошен несуществующий endpoint: {}", ex.getRequestURL());
+
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", "Not found");
+        errorResponse.put("message", "Endpoint not found: " + ex.getRequestURL());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 }
