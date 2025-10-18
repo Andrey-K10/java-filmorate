@@ -6,7 +6,6 @@ import jakarta.validation.constraints.*;
 import java.util.Set;
 import java.util.HashSet;
 
-
 @Data
 public class Film {
     private int id;
