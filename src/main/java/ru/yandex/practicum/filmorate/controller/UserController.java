@@ -83,4 +83,20 @@ public class UserController {
         log.info("Найдено {} общих друзей пользователей {} и {}", commonFriends.size(), id, otherId);
         return commonFriends;
     }
+
+    @PutMapping("/{id}/friends/{friendId}/confirm")
+    public void confirmFriend(@PathVariable @Positive int id, @PathVariable @Positive int friendId) {
+        log.info("Получен запрос на подтверждение дружбы: пользователь {} подтверждает пользователя {}", id, friendId);
+        userService.confirmFriend(id, friendId);
+        log.info("Дружба между пользователями {} и {} подтверждена", id, friendId);
+    }
+
+    @GetMapping("/{id}/friends/requests")
+    public List<User> getFriendRequests(@PathVariable @Positive int id) {
+        log.info("Получен запрос на получение заявок в друзья пользователя с id: {}", id);
+        List<User> requests = userService.getFriendRequests(id);
+        log.info("Возвращено {} заявок в друзья пользователя с id {}", requests.size(), id);
+        return requests;
+    }
+
 }

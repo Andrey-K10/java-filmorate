@@ -3,6 +3,8 @@ package ru.yandex.practicum.filmorate.model;
 import lombok.Data;
 import java.time.LocalDate;
 import jakarta.validation.constraints.*;
+import java.util.Set;
+import java.util.HashSet;
 
 
 @Data
@@ -20,4 +22,7 @@ public class Film {
 
     @Positive(message = "Продолжительность фильма должна быть положительным числом")
     private int duration;
+
+    private MpaRating mpa;
+    private Set<Genre> genres = new HashSet<>();
 }
