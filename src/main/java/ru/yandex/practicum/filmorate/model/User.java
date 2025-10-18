@@ -3,6 +3,8 @@ package ru.yandex.practicum.filmorate.model;
 import lombok.Data;
 import java.time.LocalDate;
 import jakarta.validation.constraints.*;
+import java.util.Map;
+import java.util.HashMap;
 
 
 @Data
@@ -25,4 +27,5 @@ public class User {
     public String getName() {
         return (name == null || name.isBlank()) ? login : name;
     }
+
 }

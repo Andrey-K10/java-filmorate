@@ -4,6 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -131,5 +133,23 @@ public class FilmService {
         }
 
         log.debug("Валидация фильма пройдена успешно");
+    }
+
+    public void addGenreToFilm(int filmId, Genre genre) {
+        Film film = filmStorage.getFilmById(filmId);
+        film.getGenres().add(genre);
+        log.info("Жанр {} добавлен к фильму с id {}", genre.getName(), filmId);
+    }
+
+    public void removeGenreFromFilm(int filmId, Genre genre) {
+        Film film = filmStorage.getFilmById(filmId);
+        film.getGenres().remove(genre);
+        log.info("Жанр {} удален из фильма с id {}", genre.getName(), filmId);
+    }
+
+    public void setFilmMpa(int filmId, MpaRating mpa) {
+        Film film = filmStorage.getFilmById(filmId);
+        film.setMpa(mpa);
+        log.info("MPA рейтинг {} установлен для фильма с id {}", mpa.getTitle(), filmId);
     }
 }
