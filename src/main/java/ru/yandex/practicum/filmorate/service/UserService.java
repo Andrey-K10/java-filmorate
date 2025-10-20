@@ -107,12 +107,16 @@ public class UserService {
     // Получение списка друзей (только подтвержденные)
     public List<User> getFriends(int userId) {
         userStorage.getUserById(userId);
+
         Map<Integer, FriendshipStatus> userFriends = friendships.getOrDefault(userId, Collections.emptyMap());
-        return userFriends.entrySet().stream()
+        List<User> friends = userFriends.entrySet().stream()
                 .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
                 .map(Map.Entry::getKey)
                 .map(userStorage::getUserById)
                 .collect(Collectors.toList());
+
+        log.debug("Найдено {} друзей у пользователя {}", friends.size(), userId);
+        return friends;
     }
 
     // Получение заявок в друзья (неподтвержденные)
