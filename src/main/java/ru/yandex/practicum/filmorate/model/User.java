@@ -4,7 +4,6 @@ import lombok.Data;
 import java.time.LocalDate;
 import jakarta.validation.constraints.*;
 
-
 @Data
 public class User {
     private int id;
@@ -25,4 +24,5 @@ public class User {
     public String getName() {
         return (name == null || name.isBlank()) ? login : name;
     }
+
 }
