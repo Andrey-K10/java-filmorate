@@ -143,6 +143,7 @@ public class FilmDbStorage implements FilmStorage {
 
         }, film.getId());
     }
+
     private Film mapRowToFilm(ResultSet rs, int rowNum) throws SQLException {
         Film film = new Film();
         film.setId(rs.getInt("film_id"));
