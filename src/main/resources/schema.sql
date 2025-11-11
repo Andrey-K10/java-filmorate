@@ -76,3 +76,13 @@ CREATE INDEX IF NOT EXISTS idx_film_likes_user ON film_likes(user_id);
 CREATE INDEX IF NOT EXISTS idx_friendships_user ON friendships(user_id, status_id);
 CREATE INDEX IF NOT EXISTS idx_friendships_friend ON friendships(friend_id, status_id);
 CREATE INDEX IF NOT EXISTS idx_films_release_date ON films(release_date);
+
+-- Создание таблицы лайков (если еще нет)
+CREATE TABLE IF NOT EXISTS film_likes (
+    film_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (film_id, user_id),
+    CONSTRAINT fk_film_likes_film FOREIGN KEY (film_id) REFERENCES films(film_id) ON DELETE CASCADE,
+    CONSTRAINT fk_film_likes_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);

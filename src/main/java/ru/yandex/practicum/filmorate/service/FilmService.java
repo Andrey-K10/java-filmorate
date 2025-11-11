@@ -2,6 +2,7 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
@@ -10,7 +11,6 @@ import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.time.LocalDate;
 
 @Slf4j
@@ -18,10 +18,10 @@ import java.time.LocalDate;
 public class FilmService {
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
-    private final Map<Integer, Set<Integer>> likes = new HashMap<>();
 
     @Autowired
-    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
+    public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
+                       @Qualifier("userDbStorage") UserStorage userStorage) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
     }
@@ -57,37 +57,34 @@ public class FilmService {
     public void addLike(int filmId, int userId) {
         log.debug("Добавление лайка фильму с id {} от пользователя с id {}", filmId, userId);
 
-        // Проверяем существование фильма и пользователя
         filmStorage.getFilmById(filmId);
         userStorage.getUserById(userId);
 
-        likes.putIfAbsent(filmId, new HashSet<>());
-
-        if (likes.get(filmId).contains(userId)) {
+        String sql = "INSERT INTO film_likes (film_id, user_id) VALUES (?, ?)";
+        try {
+            jdbcTemplate.update(sql, filmId, userId);
+            log.info("Пользователь с id {} поставил лайк фильму с id {}", userId, filmId);
+        } catch (Exception e) {
             log.warn("Пользователь с id {} уже поставил лайк фильму с id {}", userId, filmId);
             throw new ValidationException("Пользователь уже поставил лайк этому фильму");
         }
-
-        likes.get(filmId).add(userId);
-        log.info("Пользователь с id {} поставил лайк фильму с id {}. Всего лайков: {}",
-                userId, filmId, likes.get(filmId).size());
     }
 
     public void removeLike(int filmId, int userId) {
         log.debug("Удаление лайка фильму с id {} от пользователя с id {}", filmId, userId);
 
-        // Проверяем существование фильма и пользователя
         filmStorage.getFilmById(filmId);
         userStorage.getUserById(userId);
 
-        if (!likes.containsKey(filmId) || !likes.get(filmId).contains(userId)) {
+        String sql = "DELETE FROM film_likes WHERE film_id = ? AND user_id = ?";
+        int deleted = jdbcTemplate.update(sql, filmId, userId);
+
+        if (deleted == 0) {
             log.warn("Лайк пользователя с id {} фильму с id {} не найден", userId, filmId);
             throw new ValidationException("Лайк не найден");
         }
 
-        likes.get(filmId).remove(userId);
-        log.info("Пользователь с id {} удалил лайк с фильма с id {}. Осталось лайков: {}",
-                userId, filmId, likes.get(filmId).size());
+        log.info("Пользователь с id {} удалил лайк с фильма с id {}", userId, filmId);
     }
 
     public List<Film> getPopularFilms(int count) {
@@ -98,23 +95,36 @@ public class FilmService {
             throw new ValidationException("Количество фильмов должно быть положительным числом");
         }
 
-        List<Film> popularFilms = filmStorage.getAllFilms().stream()
-                .sorted((f1, f2) -> {
-                    int likes1 = likes.getOrDefault(f1.getId(), Collections.emptySet()).size();
-                    int likes2 = likes.getOrDefault(f2.getId(), Collections.emptySet()).size();
-                    return Integer.compare(likes2, likes1); // сортировка по убыванию
-                })
-                .limit(count)
-                .collect(Collectors.toList());
+        String sql = "SELECT f.*, m.name as mpa_name, COUNT(fl.user_id) as likes_count " +
+                "FROM films f " +
+                "JOIN mpa_ratings m ON f.mpa_id = m.mpa_id " +
+                "LEFT JOIN film_likes fl ON f.film_id = fl.film_id " +
+                "GROUP BY f.film_id " +
+                "ORDER BY likes_count DESC " +
+                "LIMIT ?";
+
+        List<Film> popularFilms = jdbcTemplate.query(sql, (rs, rowNum) -> {
+            Film film = new Film();
+            film.setId(rs.getInt("film_id"));
+            film.setName(rs.getString("title"));
+            film.setDescription(rs.getString("description"));
+            film.setReleaseDate(rs.getDate("release_date").toLocalDate());
+            film.setDuration(rs.getInt("duration"));
+
+            MpaRating mpa = new MpaRating();
+            mpa.setId(rs.getInt("mpa_id"));
+            mpa.setName(rs.getString("mpa_name"));
+            film.setMpa(mpa);
+
+            return film;
+        }, count);
+
+        for (Film film : popularFilms) {
+            loadFilmGenres(film);
+        }
 
         log.debug("Найдено {} популярных фильмов", popularFilms.size());
         return popularFilms;
-    }
-
-    public int getLikesCount(int filmId) {
-        int count = likes.getOrDefault(filmId, Collections.emptySet()).size();
-        log.debug("Количество лайков у фильма с id {}: {}", filmId, count);
-        return count;
     }
 
     private void validateFilm(Film film) {
@@ -125,7 +135,6 @@ public class FilmService {
             throw new ValidationException("Дата релиза не может быть пустой");
         }
 
-        // Проверка минимальной даты релиза (28 декабря 1895)
         LocalDate minReleaseDate = LocalDate.of(1895, 12, 28);
         if (film.getReleaseDate().isBefore(minReleaseDate)) {
             log.warn("Дата релиза {} раньше минимальной допустимой {}", film.getReleaseDate(), minReleaseDate);
@@ -150,6 +159,18 @@ public class FilmService {
     public void setFilmMpa(int filmId, MpaRating mpa) {
         Film film = filmStorage.getFilmById(filmId);
         film.setMpa(mpa);
-        log.info("MPA рейтинг {} установлен для фильма с id {}", mpa.getTitle(), filmId);
+        log.info("MPA рейтинг {} установлен для фильма с id {}", mpa.getName(), filmId);
+    }
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    private void loadFilmGenres(Film film) {
+        String sql = "SELECT g.genre_id, g.name FROM film_genres fg JOIN genres g ON fg.genre_id = g.genre_id WHERE fg.film_id = ?";
+        List<Genre> genres = jdbcTemplate.query(sql, (rs, rowNum) -> {
+            return new Genre(rs.getInt("genre_id"), rs.getString("name"));
+        }, film.getId());
+
+        film.setGenres(new HashSet<>(genres));
     }
 }

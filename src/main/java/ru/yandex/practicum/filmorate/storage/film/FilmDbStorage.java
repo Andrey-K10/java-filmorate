@@ -46,6 +46,11 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Film addFilm(Film film) {
+        // Валидация MPA
+        if (film.getMpa() == null) {
+            throw new ValidationException("MPA рейтинг не может быть null");
+        }
+
         String sql = "INSERT INTO films (title, description, release_date, duration, mpa_id) VALUES (?, ?, ?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
@@ -55,7 +60,7 @@ public class FilmDbStorage implements FilmStorage {
             stmt.setString(2, film.getDescription());
             stmt.setDate(3, Date.valueOf(film.getReleaseDate()));
             stmt.setInt(4, film.getDuration());
-            stmt.setInt(5, mapMpaEnumToId(film.getMpa()));
+            stmt.setInt(5, film.getMpa().getId()); // Используем getId() вместо enum mapping
             return stmt;
         }, keyHolder);
 
@@ -63,20 +68,6 @@ public class FilmDbStorage implements FilmStorage {
         saveFilmGenres(film);
         log.info("Фильм добавлен в БД с id: {}", film.getId());
         return film;
-    }
-
-    private int mapMpaEnumToId(MpaRating mpa) {
-        if (mpa == null) {
-            throw new ValidationException("MPA рейтинг не может быть null");
-        }
-        switch (mpa) {
-            case G: return 1;
-            case PG: return 2;
-            case PG_13: return 3;
-            case R: return 4;
-            case NC_17: return 5;
-            default: throw new ValidationException("Неизвестный MPA рейтинг: " + mpa);
-        }
     }
 
     @Override
@@ -87,7 +78,7 @@ public class FilmDbStorage implements FilmStorage {
                 film.getDescription(),
                 film.getReleaseDate(),
                 film.getDuration(),
-                mapMpaEnumToId(film.getMpa()),
+                film.getMpa().getId(), // Используем getId()
                 film.getId()
         );
 
@@ -104,7 +95,7 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Film getFilmById(int id) {
-        String sql = "SELECT f.*, m.name as mpa_name FROM films f JOIN mpa_ratings m ON f.mpa_id = m.mpa_id WHERE film_id = ?";
+        String sql = "SELECT f.*, m.name as mpa_name, m.mpa_id FROM films f JOIN mpa_ratings m ON f.mpa_id = m.mpa_id WHERE film_id = ?";
         List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, id);
 
         if (films.isEmpty()) {
@@ -126,10 +117,11 @@ public class FilmDbStorage implements FilmStorage {
         film.setReleaseDate(rs.getDate("release_date").toLocalDate());
         film.setDuration(rs.getInt("duration"));
 
-        // Устанавливаем MPA рейтинг
-        String mpaName = rs.getString("mpa_name");
-        MpaRating mpaRating = mapMpaNameToEnum(mpaName);
-        film.setMpa(mpaRating);
+        // Создаем MPA рейтинг с ID и названием
+        MpaRating mpa = new MpaRating();
+        mpa.setId(rs.getInt("mpa_id"));
+        mpa.setName(rs.getString("mpa_name"));
+        film.setMpa(mpa);
 
         return film;
     }
@@ -158,16 +150,5 @@ public class FilmDbStorage implements FilmStorage {
         }, film.getId());
 
         film.setGenres(new HashSet<>(genres));
-    }
-
-    private MpaRating mapMpaNameToEnum(String mpaName) {
-        switch (mpaName) {
-            case "G": return MpaRating.G;
-            case "PG": return MpaRating.PG;
-            case "PG-13": return MpaRating.PG_13;
-            case "R": return MpaRating.R;
-            case "NC-17": return MpaRating.NC_17;
-            default: throw new IllegalArgumentException("Unknown MPA rating: " + mpaName);
-        }
     }
 }
