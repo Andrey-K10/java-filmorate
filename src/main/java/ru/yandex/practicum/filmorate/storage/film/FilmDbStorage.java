@@ -115,7 +115,8 @@ public class FilmDbStorage implements FilmStorage {
 
         // Устанавливаем MPA рейтинг
         String mpaName = rs.getString("mpa_name");
-        film.setMpa(MpaRating.valueOf(mpaName));
+        MpaRating mpaRating = mapMpaNameToEnum(mpaName);
+        film.setMpa(mpaRating);
 
         return film;
     }
