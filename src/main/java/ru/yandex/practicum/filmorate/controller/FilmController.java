@@ -28,7 +28,7 @@ public class FilmController {
         log.info("Получен запрос на получение всех фильмов");
         List<Film> films = filmService.getAllFilms();
         log.info("Возвращено {} фильмов", films.size());
-        return films;
+        return films; // а
     }
 
     @PostMapping
