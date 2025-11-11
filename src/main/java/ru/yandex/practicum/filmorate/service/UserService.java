@@ -53,30 +53,20 @@ public class UserService {
         return user;
     }
 
-    // Добавление в друзья (неподтвержденная дружба)
     public void addFriend(int userId, int friendId) {
-        // Проверяем существование пользователей
         User user = userStorage.getUserById(userId);
         User friend = userStorage.getUserById(friendId);
 
-        log.debug("Добавление дружбы между пользователями {} и {}", userId, friendId);
-
-        // Инициализируем Map если их нет
         friendships.putIfAbsent(userId, new HashMap<>());
-        friendships.putIfAbsent(friendId, new HashMap<>());
 
-        // Проверяем, не являются ли уже друзьями
-        if (friendships.get(userId).containsKey(friendId) &&
-                friendships.get(userId).get(friendId) == FriendshipStatus.CONFIRMED) {
+        if (friendships.get(userId).containsKey(friendId)) {
             log.warn("Пользователь с id {} уже в друзьях у пользователя с id {}", friendId, userId);
             throw new ValidationException("Пользователь уже в друзьях");
         }
 
-        // Устанавливаем взаимную ПОДТВЕРЖДЕННУЮ дружбу (для совместимости с тестами)
+        // Односторонняя дружба
         friendships.get(userId).put(friendId, FriendshipStatus.CONFIRMED);
-        friendships.get(friendId).put(userId, FriendshipStatus.CONFIRMED);
-
-        log.info("Пользователи с id {} и {} теперь друзья (взаимная подтвержденная дружба)", userId, friendId);
+        log.info("Пользователь с id {} добавил пользователя с id {} в друзья", userId, friendId);
     }
 
     // Подтверждение дружбы
@@ -114,35 +104,20 @@ public class UserService {
         log.info("Пользователи с id {} и {} больше не друзья", userId, friendId);
     }
 
-    // Получение списка друзей (только подтвержденные)
     public List<User> getFriends(int userId) {
-        // Проверяем существование пользователя
         userStorage.getUserById(userId);
 
-        // Если у пользователя нет записей о друзьях, возвращаем пустой список
         if (!friendships.containsKey(userId)) {
-            log.debug("У пользователя {} нет друзей", userId);
             return new ArrayList<>();
         }
 
-        // Получаем только подтвержденных друзей
         Map<Integer, FriendshipStatus> userFriends = friendships.get(userId);
-        List<User> friends = userFriends.entrySet().stream()
+        return userFriends.entrySet().stream()
                 .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
                 .map(Map.Entry::getKey)
-                .map(friendId -> {
-                    try {
-                        return userStorage.getUserById(friendId);
-                    } catch (Exception e) {
-                        log.error("Ошибка при получении пользователя с id {}: {}", friendId, e.getMessage());
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull) // Фильтруем null значения
+                .map(userStorage::getUserById)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
-
-        log.debug("Найдено {} друзей у пользователя {}", friends.size(), userId);
-        return friends;
     }
 
     // Получение заявок в друзья (неподтвержденные)
@@ -156,41 +131,26 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    // Получение общих друзей (только подтвержденные)
     public List<User> getCommonFriends(int userId, int otherUserId) {
-        // Проверяем существование пользователей
         userStorage.getUserById(userId);
         userStorage.getUserById(otherUserId);
 
-        // Получаем друзей первого пользователя
         Set<Integer> userFriends = friendships.getOrDefault(userId, Collections.emptyMap())
                 .entrySet().stream()
                 .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
 
-        // Получаем друзей второго пользователя
         Set<Integer> otherUserFriends = friendships.getOrDefault(otherUserId, Collections.emptyMap())
                 .entrySet().stream()
                 .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
 
-        // Находим общих друзей
-        List<User> commonFriends = userFriends.stream()
+        return userFriends.stream()
                 .filter(otherUserFriends::contains)
-                .map(friendId -> {
-                    try {
-                        return userStorage.getUserById(friendId);
-                    } catch (Exception e) {
-                        log.error("Ошибка при получении общего друга с id {}: {}", friendId, e.getMessage());
-                        return null;
-                    }
-                })
+                .map(userStorage::getUserById)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
-
-        log.debug("Найдено {} общих друзей у пользователей {} и {}", commonFriends.size(), userId, otherUserId);
-        return commonFriends;
     }
 }
