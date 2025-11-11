@@ -34,14 +34,9 @@ public class FilmController {
     @PostMapping
     public Film addFilm(@Valid @RequestBody Film film) {
         log.info("Получен запрос на добавление фильма: {}", film);
-        try {
-            Film addedFilm = filmService.addFilm(film);
-            log.info("Фильм успешно добавлен с id: {}", addedFilm.getId());
-            return addedFilm;
-        } catch (Exception e) {
-            log.error("Ошибка при добавлении фильма: {}", e.getMessage(), e);
-            throw e;
-        }
+        Film addedFilm = filmService.addFilm(film);
+        log.info("Фильм успешно добавлен с id: {}", addedFilm.getId());
+        return addedFilm;
     }
 
     @PutMapping
