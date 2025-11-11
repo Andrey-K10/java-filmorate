@@ -39,7 +39,7 @@ public class InMemoryFilmStorage implements FilmStorage {
         }
         films.put(film.getId(), film);
         log.info("Фильм с id {} успешно обновлен", film.getId());
-        return film;
+        return film; // в
     }
 
     @Override
