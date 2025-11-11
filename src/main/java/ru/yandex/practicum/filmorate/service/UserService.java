@@ -2,155 +2,119 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.model.FriendshipStatus;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 public class UserService {
     private final UserStorage userStorage;
-    private final Map<Integer, Map<Integer, FriendshipStatus>> friendships = new HashMap<>();
+    private final JdbcTemplate jdbcTemplate;
 
     @Autowired
-    public UserService(UserStorage userStorage) {
+    public UserService(@Qualifier("userDbStorage") UserStorage userStorage, JdbcTemplate jdbcTemplate) {
         this.userStorage = userStorage;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public List<User> getAllUsers() {
-        log.debug("Получение всех пользователей из хранилища");
         return userStorage.getAllUsers();
     }
 
     public User addUser(User user) {
-        log.debug("Добавление нового пользователя: {}", user);
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
         }
-        User addedUser = userStorage.addUser(user);
-        log.info("Пользователь успешно добавлен с id: {}", addedUser.getId());
-        return addedUser;
+        return userStorage.addUser(user);
     }
 
     public User updateUser(User user) {
-        log.debug("Обновление пользователя с id {}: {}", user.getId(), user);
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
         }
-        User updatedUser = userStorage.updateUser(user);
-        log.info("Пользователь с id {} успешно обновлен", updatedUser.getId());
-        return updatedUser;
+        return userStorage.updateUser(user);
     }
 
     public User getUserById(int id) {
-        log.debug("Поиск пользователя по id: {}", id);
-        User user = userStorage.getUserById(id);
-        log.debug("Найден пользователь: {}", user);
-        return user;
+        return userStorage.getUserById(id);
     }
 
     public void addFriend(int userId, int friendId) {
-        User user = userStorage.getUserById(userId);
-        User friend = userStorage.getUserById(friendId);
+        userStorage.getUserById(userId);
+        userStorage.getUserById(friendId);
 
-        friendships.putIfAbsent(userId, new HashMap<>());
-
-        if (friendships.get(userId).containsKey(friendId)) {
-            log.warn("Пользователь с id {} уже в друзьях у пользователя с id {}", friendId, userId);
+        String sql = "INSERT INTO friendships (user_id, friend_id, status_id) VALUES (?, ?, 1)";
+        try {
+            jdbcTemplate.update(sql, userId, friendId);
+        } catch (Exception e) {
             throw new ValidationException("Пользователь уже в друзьях");
         }
-
-        // Односторонняя дружба
-        friendships.get(userId).put(friendId, FriendshipStatus.CONFIRMED);
-        log.info("Пользователь с id {} добавил пользователя с id {} в друзья", userId, friendId);
     }
 
-    // Подтверждение дружбы
-    public void confirmFriend(int userId, int friendId) {
-        User user = userStorage.getUserById(userId);
-        User friend = userStorage.getUserById(friendId);
-
-        // Проверяем, что есть запрос на дружбу
-        if (!friendships.containsKey(friendId) ||
-                !friendships.get(friendId).containsKey(userId) ||
-                friendships.get(friendId).get(userId) != FriendshipStatus.PENDING) {
-            log.warn("Запрос на дружбу от пользователя {} к пользователю {} не найден", friendId, userId);
-            throw new ValidationException("Запрос на дружбу не найден");
-        }
-
-        // Подтверждаем дружбу с обеих сторон
-        friendships.get(friendId).put(userId, FriendshipStatus.CONFIRMED);
-        friendships.get(userId).put(friendId, FriendshipStatus.CONFIRMED);
-        log.info("Пользователь с id {} подтвердил дружбу с пользователем с id {}", userId, friendId);
-    }
-
-    // Удаление из друзей
     public void removeFriend(int userId, int friendId) {
         userStorage.getUserById(userId);
         userStorage.getUserById(friendId);
 
-        // Удаляем дружбу с обеих сторон
-        if (friendships.containsKey(userId)) {
-            friendships.get(userId).remove(friendId);
-        }
-        if (friendships.containsKey(friendId)) {
-            friendships.get(friendId).remove(userId);
-        }
-
-        log.info("Пользователи с id {} и {} больше не друзья", userId, friendId);
+        String sql = "DELETE FROM friendships WHERE user_id = ? AND friend_id = ?";
+        jdbcTemplate.update(sql, userId, friendId);
     }
 
     public List<User> getFriends(int userId) {
         userStorage.getUserById(userId);
 
-        if (!friendships.containsKey(userId)) {
-            return new ArrayList<>();
-        }
+        String sql = "SELECT u.* FROM friendships f " +
+                "JOIN users u ON f.friend_id = u.user_id " +
+                "WHERE f.user_id = ? AND f.status_id = 2";
 
-        Map<Integer, FriendshipStatus> userFriends = friendships.get(userId);
-        return userFriends.entrySet().stream()
-                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
-                .map(Map.Entry::getKey)
-                .map(userStorage::getUserById)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-    }
-
-    // Получение заявок в друзья (неподтвержденные)
-    public List<User> getFriendRequests(int userId) {
-        userStorage.getUserById(userId);
-        Map<Integer, FriendshipStatus> userFriends = friendships.getOrDefault(userId, Collections.emptyMap());
-        return userFriends.entrySet().stream()
-                .filter(entry -> entry.getValue() == FriendshipStatus.PENDING)
-                .map(Map.Entry::getKey)
-                .map(userStorage::getUserById)
-                .collect(Collectors.toList());
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            User user = new User();
+            user.setId(rs.getInt("user_id"));
+            user.setEmail(rs.getString("email"));
+            user.setLogin(rs.getString("login"));
+            user.setName(rs.getString("name"));
+            user.setBirthday(rs.getDate("birthday").toLocalDate());
+            return user;
+        }, userId);
     }
 
     public List<User> getCommonFriends(int userId, int otherUserId) {
         userStorage.getUserById(userId);
         userStorage.getUserById(otherUserId);
 
-        Set<Integer> userFriends = friendships.getOrDefault(userId, Collections.emptyMap())
-                .entrySet().stream()
-                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
+        String sql = "SELECT u.* FROM users u " +
+                "JOIN friendships f1 ON u.user_id = f1.friend_id " +
+                "JOIN friendships f2 ON u.user_id = f2.friend_id " +
+                "WHERE f1.user_id = ? AND f2.user_id = ? " +
+                "AND f1.status_id = 2 AND f2.status_id = 2";
 
-        Set<Integer> otherUserFriends = friendships.getOrDefault(otherUserId, Collections.emptyMap())
-                .entrySet().stream()
-                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            User user = new User();
+            user.setId(rs.getInt("user_id"));
+            user.setEmail(rs.getString("email"));
+            user.setLogin(rs.getString("login"));
+            user.setName(rs.getString("name"));
+            user.setBirthday(rs.getDate("birthday").toLocalDate());
+            return user;
+        }, userId, otherUserId);
+    }
 
-        return userFriends.stream()
-                .filter(otherUserFriends::contains)
-                .map(userStorage::getUserById)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+    public void confirmFriend(int userId, int friendId) {
+        userStorage.getUserById(userId);
+        userStorage.getUserById(friendId);
+
+        String checkSql = "SELECT status_id FROM friendships WHERE user_id = ? AND friend_id = ?";
+        Integer status = jdbcTemplate.queryForObject(checkSql, Integer.class, friendId, userId);
+
+        if (status == null || status != 1) {
+            throw new ValidationException("Запрос на дружбу не найден");
+        }
+
+        String updateSql = "UPDATE friendships SET status_id = 2 WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)";
+        jdbcTemplate.update(updateSql, userId, friendId, friendId, userId);
     }
 }

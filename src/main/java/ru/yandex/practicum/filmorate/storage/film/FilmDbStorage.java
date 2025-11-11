@@ -33,10 +33,9 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public List<Film> getAllFilms() {
-        String sql = "SELECT f.*, m.name as mpa_name FROM films f JOIN mpa_ratings m ON f.mpa_id = m.mpa_id";
+        String sql = "SELECT f.*, m.mpa_id, m.name as mpa_name FROM films f JOIN mpa_ratings m ON f.mpa_id = m.mpa_id";
         List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm);
 
-        // Загружаем жанры для каждого фильма
         for (Film film : films) {
             loadFilmGenres(film);
         }
@@ -46,8 +45,7 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Film addFilm(Film film) {
-        // Валидация MPA
-        if (film.getMpa() == null) {
+        if (film.getMpa() == null || film.getMpa().getId() == 0) {
             throw new ValidationException("MPA рейтинг не может быть null");
         }
 
@@ -60,7 +58,7 @@ public class FilmDbStorage implements FilmStorage {
             stmt.setString(2, film.getDescription());
             stmt.setDate(3, Date.valueOf(film.getReleaseDate()));
             stmt.setInt(4, film.getDuration());
-            stmt.setInt(5, film.getMpa().getId()); // Используем getId() вместо enum mapping
+            stmt.setInt(5, film.getMpa().getId());
             return stmt;
         }, keyHolder);
 
@@ -78,34 +76,29 @@ public class FilmDbStorage implements FilmStorage {
                 film.getDescription(),
                 film.getReleaseDate(),
                 film.getDuration(),
-                film.getMpa().getId(), // Используем getId()
+                film.getMpa().getId(),
                 film.getId()
         );
 
         if (updated == 0) {
-            log.warn("Фильм с id {} не найден при обновлении", film.getId());
             throw new NotFoundException("Фильм с id " + film.getId() + " не найден");
         }
 
         updateFilmGenres(film);
-
-        log.info("Фильм с id {} обновлен в БД", film.getId());
         return film;
     }
 
     @Override
     public Film getFilmById(int id) {
-        String sql = "SELECT f.*, m.name as mpa_name, m.mpa_id FROM films f JOIN mpa_ratings m ON f.mpa_id = m.mpa_id WHERE film_id = ?";
+        String sql = "SELECT f.*, m.mpa_id, m.name as mpa_name FROM films f JOIN mpa_ratings m ON f.mpa_id = m.mpa_id WHERE film_id = ?";
         List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, id);
 
         if (films.isEmpty()) {
-            log.warn("Фильм с id {} не найден в БД", id);
             throw new NotFoundException("Фильм с id " + id + " не найден");
         }
 
         Film film = films.get(0);
         loadFilmGenres(film);
-
         return film;
     }
 
@@ -117,7 +110,6 @@ public class FilmDbStorage implements FilmStorage {
         film.setReleaseDate(rs.getDate("release_date").toLocalDate());
         film.setDuration(rs.getInt("duration"));
 
-        // Создаем MPA рейтинг с ID и названием
         MpaRating mpa = new MpaRating();
         mpa.setId(rs.getInt("mpa_id"));
         mpa.setName(rs.getString("mpa_name"));
@@ -130,7 +122,6 @@ public class FilmDbStorage implements FilmStorage {
         String deleteSql = "DELETE FROM film_genres WHERE film_id = ?";
         jdbcTemplate.update(deleteSql, film.getId());
 
-        // Добавляем новые жанры
         if (film.getGenres() != null && !film.getGenres().isEmpty()) {
             String insertSql = "INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)";
             film.getGenres().forEach(genre -> {

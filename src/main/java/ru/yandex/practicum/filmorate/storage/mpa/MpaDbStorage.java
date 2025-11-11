@@ -32,6 +32,9 @@ public class MpaDbStorage {
     }
 
     private MpaRating mapRowToMpa(ResultSet rs, int rowNum) throws SQLException {
-        return new MpaRating(rs.getInt("mpa_id"), rs.getString("name"));
+        MpaRating mpa = new MpaRating();
+        mpa.setId(rs.getInt("mpa_id"));
+        mpa.setName(rs.getString("name"));
+        return mpa;
     }
 }
