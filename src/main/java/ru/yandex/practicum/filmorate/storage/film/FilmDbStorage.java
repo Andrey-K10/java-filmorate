@@ -144,21 +144,6 @@ public class FilmDbStorage implements FilmStorage {
         }, film.getId());
     }
 
-    private Film mapRowToFilm(ResultSet rs, int rowNum) throws SQLException {
-        Film film = new Film();
-        film.setId(rs.getInt("film_id"));
-        film.setName(rs.getString("title"));
-        film.setDescription(rs.getString("description"));
-        film.setReleaseDate(rs.getDate("release_date").toLocalDate());
-        film.setDuration(rs.getInt("duration"));
-
-        String mpaName = rs.getString("mpa_name");
-        MpaRating mpaRating = mapMpaNameToEnum(mpaName);
-        film.setMpa(mpaRating);
-
-        return film;
-    }
-
     private MpaRating mapMpaNameToEnum(String mpaName) {
         switch (mpaName) {
             case "G": return MpaRating.G;
