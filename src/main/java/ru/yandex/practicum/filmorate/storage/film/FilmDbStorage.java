@@ -56,13 +56,16 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     private int mapMpaEnumToId(MpaRating mpa) {
+        if (mpa == null) {
+            throw new ValidationException("MPA рейтинг не может быть null");
+        }
         switch (mpa) {
             case G: return 1;
             case PG: return 2;
             case PG_13: return 3;
             case R: return 4;
             case NC_17: return 5;
-            default: throw new IllegalArgumentException("Unknown MPA rating: " + mpa);
+            default: throw new ValidationException("Неизвестный MPA рейтинг: " + mpa);
         }
     }
 
