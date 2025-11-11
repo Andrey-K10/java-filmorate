@@ -10,10 +10,13 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.MpaRating;
+import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import java.sql.*;
 import java.util.List;
 import java.util.Objects;
+import java.util.HashSet;
 
 @Slf4j
 @Repository
@@ -31,7 +34,14 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public List<Film> getAllFilms() {
         String sql = "SELECT f.*, m.name as mpa_name FROM films f JOIN mpa_ratings m ON f.mpa_id = m.mpa_id";
-        return jdbcTemplate.query(sql, this::mapRowToFilm);
+        List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm);
+
+        // Загружаем жанры для каждого фильма
+        for (Film film : films) {
+            loadFilmGenres(film);
+        }
+
+        return films;
     }
 
     @Override
@@ -77,7 +87,7 @@ public class FilmDbStorage implements FilmStorage {
                 film.getDescription(),
                 film.getReleaseDate(),
                 film.getDuration(),
-                film.getMpa().ordinal() + 1,
+                mapMpaEnumToId(film.getMpa()),
                 film.getId()
         );
 
@@ -143,9 +153,11 @@ public class FilmDbStorage implements FilmStorage {
 
     private void loadFilmGenres(Film film) {
         String sql = "SELECT g.genre_id, g.name FROM film_genres fg JOIN genres g ON fg.genre_id = g.genre_id WHERE fg.film_id = ?";
-        jdbcTemplate.query(sql, rs -> {
-
+        List<Genre> genres = jdbcTemplate.query(sql, (rs, rowNum) -> {
+            return new Genre(rs.getInt("genre_id"), rs.getString("name"));
         }, film.getId());
+
+        film.setGenres(new HashSet<>(genres));
     }
 
     private MpaRating mapMpaNameToEnum(String mpaName) {
