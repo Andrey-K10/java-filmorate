@@ -77,7 +77,7 @@ class FilmDbStorageTest {
         film2.setDescription("Another Description");
         film2.setReleaseDate(LocalDate.of(2021, 1, 1));
         film2.setDuration(90);
-        film2.setMpa(MpaRating.G);
+        film2.setMpa(MpaRating.G); // ← ИСПРАВИТЬ: использовать правильный enum
         filmStorage.addFilm(film2);
 
         List<Film> films = filmStorage.getAllFilms();

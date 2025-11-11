@@ -45,16 +45,25 @@ public class FilmDbStorage implements FilmStorage {
             stmt.setString(2, film.getDescription());
             stmt.setDate(3, Date.valueOf(film.getReleaseDate()));
             stmt.setInt(4, film.getDuration());
-            stmt.setInt(5, film.getMpa().ordinal() + 1); // Конвертируем enum в ID
+            stmt.setInt(5, mapMpaEnumToId(film.getMpa()));
             return stmt;
         }, keyHolder);
 
         film.setId(Objects.requireNonNull(keyHolder.getKey()).intValue());
-
         saveFilmGenres(film);
-
         log.info("Фильм добавлен в БД с id: {}", film.getId());
         return film;
+    }
+
+    private int mapMpaEnumToId(MpaRating mpa) {
+        switch (mpa) {
+            case G: return 1;
+            case PG: return 2;
+            case PG_13: return 3;
+            case R: return 4;
+            case NC_17: return 5;
+            default: throw new IllegalArgumentException("Unknown MPA rating: " + mpa);
+        }
     }
 
     @Override
@@ -133,5 +142,30 @@ public class FilmDbStorage implements FilmStorage {
         jdbcTemplate.query(sql, rs -> {
 
         }, film.getId());
+    }
+    private Film mapRowToFilm(ResultSet rs, int rowNum) throws SQLException {
+        Film film = new Film();
+        film.setId(rs.getInt("film_id"));
+        film.setName(rs.getString("title"));
+        film.setDescription(rs.getString("description"));
+        film.setReleaseDate(rs.getDate("release_date").toLocalDate());
+        film.setDuration(rs.getInt("duration"));
+
+        String mpaName = rs.getString("mpa_name");
+        MpaRating mpaRating = mapMpaNameToEnum(mpaName);
+        film.setMpa(mpaRating);
+
+        return film;
+    }
+
+    private MpaRating mapMpaNameToEnum(String mpaName) {
+        switch (mpaName) {
+            case "G": return MpaRating.G;
+            case "PG": return MpaRating.PG;
+            case "PG-13": return MpaRating.PG_13;
+            case "R": return MpaRating.R;
+            case "NC-17": return MpaRating.NC_17;
+            default: throw new IllegalArgumentException("Unknown MPA rating: " + mpaName);
+        }
     }
 }
