@@ -79,7 +79,7 @@ public class UserService {
         log.info("Пользователи с id {} и {} теперь друзья (взаимная подтвержденная дружба)", userId, friendId);
     }
 
-    // Подтверждение дружбы
+    // Подтверждение дружбы2
     public void confirmFriend(int userId, int friendId) {
         User user = userStorage.getUserById(userId);
         User friend = userStorage.getUserById(friendId);
