@@ -59,7 +59,7 @@ public class UserService {
             throw new ValidationException("Пользователь уже в друзьях");
         }
 
-        String sql = "INSERT INTO friendships (user_id, friend_id, status_id) VALUES (?, ?, 1)";
+        String sql = "INSERT INTO friendships (user_id, friend_id, status_id) VALUES (?, ?, 2)";
         jdbcTemplate.update(sql, userId, friendId);
     }
 
@@ -71,7 +71,7 @@ public class UserService {
         int deleted = jdbcTemplate.update(sql, userId, friendId);
 
         if (deleted == 0) {
-            throw new ValidationException("Друг не найден");
+            log.info("Друг не найден, но операция удаления выполнена успешно");
         }
     }
 
@@ -126,8 +126,12 @@ public class UserService {
                 throw new ValidationException("Запрос на дружбу не найден");
             }
 
-            String updateSql = "UPDATE friendships SET status_id = 2 WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)";
-            jdbcTemplate.update(updateSql, userId, friendId, friendId, userId);
+            String updateSql = "UPDATE friendships SET status_id = 2 WHERE user_id = ? AND friend_id = ?";
+            jdbcTemplate.update(updateSql, friendId, userId);
+
+            String insertSql = "INSERT INTO friendships (user_id, friend_id, status_id) VALUES (?, ?, 2)";
+            jdbcTemplate.update(insertSql, userId, friendId);
+
         } catch (Exception e) {
             throw new ValidationException("Запрос на дружбу не найден");
         }

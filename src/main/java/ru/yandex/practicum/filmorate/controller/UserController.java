@@ -84,10 +84,4 @@ public class UserController {
         return commonFriends;
     }
 
-    @PutMapping("/{id}/friends/{friendId}/confirm")
-    public void confirmFriend(@PathVariable @Positive int id, @PathVariable @Positive int friendId) {
-        log.info("Получен запрос на подтверждение дружбы: пользователь {} подтверждает пользователя {}", id, friendId);
-        userService.confirmFriend(id, friendId);
-        log.info("Дружба между пользователями {} и {} подтверждена", id, friendId);
-    }
 }

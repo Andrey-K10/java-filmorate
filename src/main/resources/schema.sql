@@ -56,18 +56,17 @@ CREATE TABLE IF NOT EXISTS friendship_status (
     name VARCHAR(50) NOT NULL UNIQUE
 );
 
--- Создание таблицы дружбы
+-- Создание таблицы дружбы (односторонняя)
 CREATE TABLE IF NOT EXISTS friendships (
     user_id INT NOT NULL,
     friend_id INT NOT NULL,
-    status_id INT NOT NULL DEFAULT 1,
+    status_id INT NOT NULL DEFAULT 2,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, friend_id),
     CONSTRAINT fk_friendships_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     CONSTRAINT fk_friendships_friend FOREIGN KEY (friend_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    CONSTRAINT fk_friendships_status FOREIGN KEY (status_id) REFERENCES friendship_status(status_id),
-    CONSTRAINT chk_no_self_friendship CHECK (user_id != friend_id)
+    CONSTRAINT fk_friendships_status FOREIGN KEY (status_id) REFERENCES friendship_status(status_id)
 );
 
 -- Создание индексов для улучшения производительности
