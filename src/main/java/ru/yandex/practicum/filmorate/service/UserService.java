@@ -48,6 +48,10 @@ public class UserService {
         userStorage.getUserById(userId);
         userStorage.getUserById(friendId);
 
+        if (userId == friendId) {
+            throw new ValidationException("Нельзя добавить самого себя в друзья");
+        }
+
         String checkSql = "SELECT COUNT(*) FROM friendships WHERE user_id = ? AND friend_id = ?";
         Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, userId, friendId);
 
@@ -64,7 +68,11 @@ public class UserService {
         userStorage.getUserById(friendId);
 
         String sql = "DELETE FROM friendships WHERE user_id = ? AND friend_id = ?";
-        jdbcTemplate.update(sql, userId, friendId);
+        int deleted = jdbcTemplate.update(sql, userId, friendId);
+
+        if (deleted == 0) {
+            throw new ValidationException("Друг не найден");
+        }
     }
 
     public List<User> getFriends(int userId) {

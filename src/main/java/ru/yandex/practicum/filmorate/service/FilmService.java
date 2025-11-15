@@ -11,6 +11,7 @@ import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import java.util.*;
 import java.time.LocalDate;
 
@@ -36,11 +37,23 @@ public class FilmService {
 
     public Film addFilm(Film film) {
         validateFilm(film);
+        validateMpaExists(film.getMpa().getId());
+        if (film.getGenres() != null) {
+            for (Genre genre : film.getGenres()) {
+                validateGenreExists(genre.getId());
+            }
+        }
         return filmStorage.addFilm(film);
     }
 
     public Film updateFilm(Film film) {
         validateFilm(film);
+        validateMpaExists(film.getMpa().getId());
+        if (film.getGenres() != null) {
+            for (Genre genre : film.getGenres()) {
+                validateGenreExists(genre.getId());
+            }
+        }
         return filmStorage.updateFilm(film);
     }
 
@@ -116,6 +129,22 @@ public class FilmService {
         LocalDate minReleaseDate = LocalDate.of(1895, 12, 28);
         if (film.getReleaseDate().isBefore(minReleaseDate)) {
             throw new ValidationException("Дата релиза не может быть раньше 28 декабря 1895 года");
+        }
+    }
+
+    private void validateMpaExists(int mpaId) {
+        String sql = "SELECT COUNT(*) FROM mpa_ratings WHERE mpa_id = ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, mpaId);
+        if (count == null || count == 0) {
+            throw new NotFoundException("MPA рейтинг с id " + mpaId + " не найден");
+        }
+    }
+
+    private void validateGenreExists(int genreId) {
+        String sql = "SELECT COUNT(*) FROM genres WHERE genre_id = ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, genreId);
+        if (count == null || count == 0) {
+            throw new NotFoundException("Жанр с id " + genreId + " не найден");
         }
     }
 

@@ -49,6 +49,8 @@ public class FilmDbStorage implements FilmStorage {
             throw new ValidationException("MPA рейтинг не может быть null");
         }
 
+        validateMpaExists(film.getMpa().getId());
+
         String sql = "INSERT INTO films (title, description, release_date, duration, mpa_id) VALUES (?, ?, ?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
@@ -69,6 +71,8 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public Film updateFilm(Film film) {
+        validateMpaExists(film.getMpa().getId());
+
         String sql = "UPDATE films SET title = ?, description = ?, release_date = ?, duration = ?, mpa_id = ? WHERE film_id = ?";
         int updated = jdbcTemplate.update(sql,
                 film.getName(),
@@ -140,5 +144,13 @@ public class FilmDbStorage implements FilmStorage {
         }, film.getId());
 
         film.setGenres(new HashSet<>(genres));
+    }
+
+    private void validateMpaExists(int mpaId) {
+        String sql = "SELECT COUNT(*) FROM mpa_ratings WHERE mpa_id = ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, mpaId);
+        if (count == null || count == 0) {
+            throw new NotFoundException("MPA рейтинг с id " + mpaId + " не найден");
+        }
     }
 }
