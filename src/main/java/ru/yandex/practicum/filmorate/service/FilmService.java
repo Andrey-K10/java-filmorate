@@ -3,157 +3,136 @@ package ru.yandex.practicum.filmorate.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
-import ru.yandex.practicum.filmorate.model.MpaRating;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
+import ru.yandex.practicum.filmorate.dal.FilmLikesRepository;
+import ru.yandex.practicum.filmorate.dal.GenreRepository;
+import ru.yandex.practicum.filmorate.dal.ValidationRepository;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import java.util.*;
 import java.time.LocalDate;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 public class FilmService {
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
-    private final JdbcTemplate jdbcTemplate;
+    private final FilmLikesRepository filmLikesRepository;
+    private final GenreRepository genreRepository;
+    private final ValidationRepository validationRepository;
 
     @Autowired
     public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
                        @Qualifier("userDbStorage") UserStorage userStorage,
-                       JdbcTemplate jdbcTemplate) {
+                       FilmLikesRepository filmLikesRepository,
+                       GenreRepository genreRepository,
+                       ValidationRepository validationRepository) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
-        this.jdbcTemplate = jdbcTemplate;
+        this.filmLikesRepository = filmLikesRepository;
+        this.genreRepository = genreRepository;
+        this.validationRepository = validationRepository;
     }
 
     public List<Film> getAllFilms() {
-        return filmStorage.getAllFilms();
+        log.debug("Получение всех фильмов из хранилища");
+        List<Film> films = filmStorage.getAllFilms();
+        genreRepository.loadGenresForFilms(films);
+        return films;
     }
 
     public Film addFilm(Film film) {
+        log.debug("Добавление нового фильма: {}", film);
         validateFilm(film);
-        validateMpaExists(film.getMpa().getId());
-        if (film.getGenres() != null) {
-            for (Genre genre : film.getGenres()) {
-                validateGenreExists(genre.getId());
-            }
+
+        validationRepository.validateMpaExists(film.getMpa().getId());
+        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
+            Set<Integer> genreIds = film.getGenres().stream()
+                    .map(Genre::getId)
+                    .collect(Collectors.toSet());
+            validationRepository.validateGenresExist(genreIds);
         }
-        return filmStorage.addFilm(film);
+
+        Film addedFilm = filmStorage.addFilm(film);
+        genreRepository.saveFilmGenres(addedFilm.getId(), addedFilm.getGenres());
+        log.info("Фильм успешно добавлен с id: {}", addedFilm.getId());
+        return addedFilm;
     }
 
     public Film updateFilm(Film film) {
+        log.debug("Обновление фильма с id {}: {}", film.getId(), film);
         validateFilm(film);
-        validateMpaExists(film.getMpa().getId());
-        if (film.getGenres() != null) {
-            for (Genre genre : film.getGenres()) {
-                validateGenreExists(genre.getId());
-            }
+
+        validationRepository.validateMpaExists(film.getMpa().getId());
+        if (film.getGenres() != null && !film.getGenres().isEmpty()) {
+            Set<Integer> genreIds = film.getGenres().stream()
+                    .map(Genre::getId)
+                    .collect(Collectors.toSet());
+            validationRepository.validateGenresExist(genreIds);
         }
-        return filmStorage.updateFilm(film);
+
+        Film updatedFilm = filmStorage.updateFilm(film);
+        genreRepository.saveFilmGenres(updatedFilm.getId(), updatedFilm.getGenres());
+        log.info("Фильм с id {} успешно обновлен", updatedFilm.getId());
+        return updatedFilm;
     }
 
     public Film getFilmById(int id) {
-        return filmStorage.getFilmById(id);
+        log.debug("Поиск фильма по id: {}", id);
+        Film film = filmStorage.getFilmById(id);
+        genreRepository.loadGenresForFilm(film);
+        log.debug("Найден фильм: {}", film);
+        return film;
     }
 
     public void addLike(int filmId, int userId) {
+        log.debug("Добавление лайка фильму с id {} от пользователя с id {}", filmId, userId);
         filmStorage.getFilmById(filmId);
         userStorage.getUserById(userId);
-
-        String sql = "INSERT INTO film_likes (film_id, user_id) VALUES (?, ?)";
-        try {
-            jdbcTemplate.update(sql, filmId, userId);
-        } catch (Exception e) {
-            throw new ValidationException("Пользователь уже поставил лайк этому фильму");
-        }
+        filmLikesRepository.addLike(filmId, userId);
+        log.info("Пользователь с id {} поставил лайк фильму с id {}", userId, filmId);
     }
 
     public void removeLike(int filmId, int userId) {
+        log.debug("Удаление лайка фильму с id {} от пользователя с id {}", filmId, userId);
         filmStorage.getFilmById(filmId);
         userStorage.getUserById(userId);
-
-        String sql = "DELETE FROM film_likes WHERE film_id = ? AND user_id = ?";
-        int deleted = jdbcTemplate.update(sql, filmId, userId);
-
-        if (deleted == 0) {
-            throw new ValidationException("Лайк не найден");
-        }
+        filmLikesRepository.removeLike(filmId, userId);
+        log.info("Пользователь с id {} удалил лайк с фильма с id {}", userId, filmId);
     }
 
     public List<Film> getPopularFilms(int count) {
+        log.debug("Получение {} популярных фильмов", count);
+
         if (count <= 0) {
+            log.warn("Запрошено недопустимое количество фильмов: {}", count);
             throw new ValidationException("Количество фильмов должно быть положительным числом");
         }
 
-        String sql = "SELECT f.*, m.mpa_id, m.name as mpa_name, COUNT(fl.user_id) as likes_count " +
-                "FROM films f " +
-                "JOIN mpa_ratings m ON f.mpa_id = m.mpa_id " +
-                "LEFT JOIN film_likes fl ON f.film_id = fl.film_id " +
-                "GROUP BY f.film_id " +
-                "ORDER BY likes_count DESC " +
-                "LIMIT ?";
-
-        List<Film> popularFilms = jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Film film = new Film();
-            film.setId(rs.getInt("film_id"));
-            film.setName(rs.getString("title"));
-            film.setDescription(rs.getString("description"));
-            film.setReleaseDate(rs.getDate("release_date").toLocalDate());
-            film.setDuration(rs.getInt("duration"));
-
-            MpaRating mpa = new MpaRating();
-            mpa.setId(rs.getInt("mpa_id"));
-            mpa.setName(rs.getString("mpa_name"));
-            film.setMpa(mpa);
-
-            return film;
-        }, count);
-
-        for (Film film : popularFilms) {
-            loadFilmGenres(film);
-        }
-
+        List<Film> popularFilms = filmLikesRepository.getPopularFilms(count);
+        genreRepository.loadGenresForFilms(popularFilms);
+        log.debug("Найдено {} популярных фильмов", popularFilms.size());
         return popularFilms;
     }
 
     private void validateFilm(Film film) {
+        log.debug("Валидация фильма: {}", film);
+
         if (film.getReleaseDate() == null) {
+            log.warn("Дата релиза фильма не может быть null");
             throw new ValidationException("Дата релиза не может быть пустой");
         }
 
         LocalDate minReleaseDate = LocalDate.of(1895, 12, 28);
         if (film.getReleaseDate().isBefore(minReleaseDate)) {
+            log.warn("Дата релиза {} раньше минимальной допустимой {}", film.getReleaseDate(), minReleaseDate);
             throw new ValidationException("Дата релиза не может быть раньше 28 декабря 1895 года");
         }
-    }
 
-    private void validateMpaExists(int mpaId) {
-        String sql = "SELECT COUNT(*) FROM mpa_ratings WHERE mpa_id = ?";
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, mpaId);
-        if (count == null || count == 0) {
-            throw new NotFoundException("MPA рейтинг с id " + mpaId + " не найден");
-        }
-    }
-
-    private void validateGenreExists(int genreId) {
-        String sql = "SELECT COUNT(*) FROM genres WHERE genre_id = ?";
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, genreId);
-        if (count == null || count == 0) {
-            throw new NotFoundException("Жанр с id " + genreId + " не найден");
-        }
-    }
-
-    private void loadFilmGenres(Film film) {
-        String sql = "SELECT g.genre_id, g.name FROM film_genres fg JOIN genres g ON fg.genre_id = g.genre_id WHERE fg.film_id = ?";
-        List<Genre> genres = jdbcTemplate.query(sql, (rs, rowNum) -> {
-            return new Genre(rs.getInt("genre_id"), rs.getString("name"));
-        }, film.getId());
-
-        film.setGenres(new HashSet<>(genres));
+        log.debug("Валидация фильма пройдена успешно");
     }
 }
