@@ -29,11 +29,7 @@ public class FriendshipRepository {
 
     public void removeFriend(int userId, int friendId) {
         String sql = "DELETE FROM friendships WHERE user_id = ? AND friend_id = ?";
-        int deleted = jdbcTemplate.update(sql, userId, friendId);
-
-        if (deleted == 0) {
-            throw new ValidationException("Друг не найден");
-        }
+        jdbcTemplate.update(sql, userId, friendId);
     }
 
     public List<User> getFriends(int userId) {
