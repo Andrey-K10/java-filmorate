@@ -2,9 +2,9 @@ package ru.yandex.practicum.filmorate.model;
 
 import lombok.Data;
 import java.time.LocalDate;
-import jakarta.validation.constraints.*;
 import java.util.Set;
 import java.util.HashSet;
+import jakarta.validation.constraints.*;
 
 @Data
 public class Film {
@@ -24,4 +24,5 @@ public class Film {
 
     private MpaRating mpa;
     private Set<Genre> genres = new HashSet<>();
+    private Set<Integer> likes = new HashSet<>();
 }

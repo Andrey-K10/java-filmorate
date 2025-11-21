@@ -24,5 +24,4 @@ public class User {
     public String getName() {
         return (name == null || name.isBlank()) ? login : name;
     }
-
 }
